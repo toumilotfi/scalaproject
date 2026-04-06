@@ -1,0 +1,7 @@
+target/
+data/*.csv
+*.jar
+.idea/
+.bsp/
+project/target/
+project/project/
