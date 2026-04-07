@@ -5,3 +5,8 @@ data/*.csv
 .bsp/
 project/target/
 project/project/
+# Internal planning docs -- keep local only
+ARCHITECTURE.md
+AUDIT.md
+plan.md
+tasks.md
