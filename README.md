@@ -14,6 +14,7 @@ Produces: `target/scala-2.12/earthquake-analysis-assembly-1.0.jar`
 
 ```bash
 spark-submit \
+  --master local[*] \
   --class EarthquakeAnalysis \
   target/scala-2.12/earthquake-analysis-assembly-1.0.jar \
   data/dataset-earthquakes-trimmed.csv
@@ -21,7 +22,11 @@ spark-submit \
 
 Optional: specify repartition count as second argument:
 ```bash
-spark-submit ... data/dataset-earthquakes-trimmed.csv 16
+spark-submit \
+  --master local[*] \
+  --class EarthquakeAnalysis \
+  target/scala-2.12/earthquake-analysis-assembly-1.0.jar \
+  data/dataset-earthquakes-trimmed.csv 16
 ```
 
 ## Run on Google Cloud DataProc
@@ -34,41 +39,77 @@ gsutil cp target/scala-2.12/earthquake-analysis-assembly-1.0.jar gs://YOUR_BUCKE
 gsutil cp data/dataset-earthquakes-full.csv gs://YOUR_BUCKET/
 ```
 
-### 2. Create cluster
+### 2. Create cluster and submit job
 
+Repeat for each worker count (2, 3, 4) to measure scalability. Always delete the cluster after each experiment to save credits.
+
+**2 workers:**
 ```bash
-gcloud dataproc clusters create eq-cluster \
+gcloud dataproc clusters create eq-cluster-2 \
   --region=europe-west1 \
   --num-workers 2 \
   --master-boot-disk-size 240 \
   --worker-boot-disk-size 240 \
   --master-machine-type=n2-standard-4 \
   --worker-machine-type=n2-standard-4
-```
 
-### 3. Submit job
-
-```bash
 gcloud dataproc jobs submit spark \
-  --cluster=eq-cluster \
+  --cluster=eq-cluster-2 \
   --region=europe-west1 \
   --jar=gs://YOUR_BUCKET/earthquake-analysis-assembly-1.0.jar \
   -- gs://YOUR_BUCKET/dataset-earthquakes-full.csv
+
+gcloud dataproc clusters delete eq-cluster-2 --region=europe-west1
 ```
 
-With repartition:
+**3 workers:**
+```bash
+gcloud dataproc clusters create eq-cluster-3 \
+  --region=europe-west1 \
+  --num-workers 3 \
+  --master-boot-disk-size 240 \
+  --worker-boot-disk-size 240 \
+  --master-machine-type=n2-standard-4 \
+  --worker-machine-type=n2-standard-4
+
+gcloud dataproc jobs submit spark \
+  --cluster=eq-cluster-3 \
+  --region=europe-west1 \
+  --jar=gs://YOUR_BUCKET/earthquake-analysis-assembly-1.0.jar \
+  -- gs://YOUR_BUCKET/dataset-earthquakes-full.csv
+
+gcloud dataproc clusters delete eq-cluster-3 --region=europe-west1
+```
+
+**4 workers:**
+```bash
+gcloud dataproc clusters create eq-cluster-4 \
+  --region=europe-west1 \
+  --num-workers 4 \
+  --master-boot-disk-size 240 \
+  --worker-boot-disk-size 240 \
+  --master-machine-type=n2-standard-4 \
+  --worker-machine-type=n2-standard-4
+
+gcloud dataproc jobs submit spark \
+  --cluster=eq-cluster-4 \
+  --region=europe-west1 \
+  --jar=gs://YOUR_BUCKET/earthquake-analysis-assembly-1.0.jar \
+  -- gs://YOUR_BUCKET/dataset-earthquakes-full.csv
+
+gcloud dataproc clusters delete eq-cluster-4 --region=europe-west1
+```
+
+### 3. Submit job with custom repartition
+
+Pass the repartition count as the second argument (after `--`):
+
 ```bash
 gcloud dataproc jobs submit spark \
-  --cluster=eq-cluster \
+  --cluster=eq-cluster-2 \
   --region=europe-west1 \
   --jar=gs://YOUR_BUCKET/earthquake-analysis-assembly-1.0.jar \
   -- gs://YOUR_BUCKET/dataset-earthquakes-full.csv 16
-```
-
-### 4. Delete cluster
-
-```bash
-gcloud dataproc clusters delete eq-cluster --region=europe-west1
 ```
 
 ## Algorithm
