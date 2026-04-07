@@ -112,12 +112,31 @@ gcloud dataproc jobs submit spark \
   -- gs://YOUR_BUCKET/dataset-earthquakes-full.csv 16
 ```
 
+## Output Format
+
+The program prints the pair of locations with the highest number of co-occurrence days, followed by each co-occurrence date in ascending order:
+
+```
+((lat1, lon1), (lat2, lon2))
+YYYY-MM-DD
+YYYY-MM-DD
+...
+```
+
+Example:
+```
+((37.5, 15.3), (38.1, 13.4))
+2024-03-12
+2024-04-01
+2024-04-03
+```
+
 ## Algorithm
 
 1. Load CSV, parse longitude/latitude/date
-2. Round coordinates to 1 decimal place (HALF_UP)
-3. Extract day from timestamp
-4. Remove duplicate (day, location) pairs
+2. Round coordinates to 1 decimal place (HALF_UP rounding)
+3. Extract day (YYYY-MM-DD) from timestamp
+4. Remove duplicate (day, location) pairs caused by rounding
 5. Group locations by day
 6. Generate all unordered pairs of different locations per day
 7. Count co-occurrences per pair using reduceByKey
