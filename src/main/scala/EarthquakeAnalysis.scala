@@ -11,7 +11,10 @@ case class Location(lat: Double, lon: Double) extends Ordered[Location] with Ser
 
 object EarthquakeAnalysis {
 
-  def roundTo1Decimal(value: Double): Double =
+  /** Round to 1 decimal place from String to avoid IEEE 754 precision loss.
+    * BigDecimal(double) uses the exact binary representation (e.g. 13.35 -> 13.34999...)
+    * which causes HALF_UP to round DOWN at .X5 boundaries. Using BigDecimal(string) is safe. */
+  def roundTo1Decimal(value: String): Double =
     BigDecimal(value).setScale(1, BigDecimal.RoundingMode.HALF_UP).toDouble
 
   def canonicalPair(a: Location, b: Location): (Location, Location) =
@@ -26,9 +29,15 @@ object EarthquakeAnalysis {
     val inputPath = args(0)
     val repartitionCount = if (args.length >= 2) Some(args(1).toInt) else None
 
-    val spark = SparkSession.builder
+    // On DataProc, spark-submit sets spark.master automatically (yarn).
+    // Locally via sbt run, no master is set, so we fall back to local[*].
+    val builder = SparkSession.builder
       .appName("Earthquake Co-occurrence Analysis")
-      .getOrCreate()
+    val conf = new org.apache.spark.SparkConf()
+    if (!conf.contains("spark.master")) {
+      builder.master("local[*]")
+    }
+    val spark = builder.getOrCreate()
 
     // Stage 1: Load CSV
     val rawData = spark.read.option("header", value = true).csv(inputPath).rdd
@@ -40,11 +49,12 @@ object EarthquakeAnalysis {
     }
 
     // Stage 2: Normalize -- map to (day, Location)
+    // CSV columns: 0=longitude, 1=latitude, 2=date
     val normalized = data.map { row =>
-      val lon = row.getString(0).toDouble
-      val lat = row.getString(1).toDouble
+      val lonStr = row.getString(0)
+      val latStr = row.getString(1)
       val day = row.getString(2).substring(0, 10)
-      val loc = Location(roundTo1Decimal(lat), roundTo1Decimal(lon))
+      val loc = Location(roundTo1Decimal(latStr), roundTo1Decimal(lonStr))
       (day, loc)
     }
 
@@ -55,7 +65,7 @@ object EarthquakeAnalysis {
     val locsByDay = deduplicated.groupByKey()
 
     val pairPerDay = locsByDay.flatMap { case (day, locations) =>
-      val locList = locations.toList.distinct
+      val locList = locations.toList
       locList.combinations(2).map { case List(l1, l2) =>
         (canonicalPair(l1, l2), day)
       }
